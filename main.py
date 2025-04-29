@@ -2,8 +2,9 @@ import matplotlib
 matplotlib.use('TkAgg')
 import PySimpleGUI as sg
 import matplotlib.pyplot as plt
+plt.style.use('ggplot')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
+from animations.collatz_performance import CollatzPerformance
 from animations.enhanced_collatz import EnhancedCollatz
 from animations.prime_factor import (
     DualPrimeFactorProgression,
@@ -15,8 +16,10 @@ layout = [
     [sg.Text('Project Euler Visualizer', font=('Arial', 16))],
     [
         sg.Button('Enhanced Collatz'),
+        sg.Button('Collatz Performance'),
         sg.Button('LPF Dual Progression'),
         sg.Button('LPF Performance'),
+
         sg.Button('Exit')
     ],
     [
@@ -69,6 +72,14 @@ while True:
         animator = EnhancedCollatz(seeds, fig)
         canvas.draw(); window.refresh()
         continue
+    if event == 'Collatz Performance':
+       fig.clear()
+       ax = fig.add_subplot(111)
+       # e.g. test up to 10k,20k,40k,80k for speed
+       sizes = [10_000 * 2**i for i in range(7)]
+       animator = CollatzPerformance(sizes, ax)
+       canvas.draw(); window.refresh()
+       continue
 
     if event == 'LPF Dual Progression':
         inp = sg.popup_get_text(
@@ -92,11 +103,10 @@ while True:
     if event == 'LPF Performance':
         fig.clear()
         ax = fig.add_subplot(111)
-        sizes = [
-            10_000, 20_000, 50_000,
-            100_000, 200_000, 500_000,
-            1_000_000, 2_000_000
-        ]
+        # a richer, geometric progression from 10 000 up to ~2.56 million
+        sizes = [10_000 * (2**i) for i in range(0, 15)]  # [10k, 20k, 40k, …, 2 560k]
+        # insert one mid-range check for extra detail
+        sizes.insert(2, 30_000)  # now: 10k, 20k, 30k, 40k, …, 2 560k
         animator = PrimeFactorPerformance(sizes, ax)
         canvas.draw(); window.refresh()
         continue

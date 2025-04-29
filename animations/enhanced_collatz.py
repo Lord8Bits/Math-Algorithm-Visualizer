@@ -3,23 +3,29 @@ import math
 
 class EnhancedCollatz:
     def __init__(self, seeds, fig):
+        # Validate seeds: only accept positive integers.
+        if any(s <= 0 for s in seeds):
+            raise ValueError("All seeds must be positive integers.")
         self.seeds = seeds
         self.fig = fig
         self.paused = False
         self.step = 1
 
-        # build & cache full sequences
+        # Build & cache the full Collatz sequences
         self.cache = {1: [1]}
         self.seqs = [self._get_sequence(s) for s in seeds]
 
-        # compute bounds & histogram bins
-        self.max_len = max(len(seq) for seq in self.seqs)
+        # For plotting bounds & histogram bins
+        self.max_len    = max(len(seq) for seq in self.seqs)
         self.global_max = max(max(seq) for seq in self.seqs)
-        self.bins = np.logspace(0, math.log10(self.global_max), num=20)
+        self.bins       = np.logspace(0, math.log10(self.global_max), num=20)
 
         self._setup()
 
     def _get_sequence(self, n):
+        # Extra validation in case a non-positive number slips through
+        if n <= 0:
+            raise ValueError("Seed must be a positive integer.")
         seq = []
         x = n
         while x not in self.cache:
@@ -30,50 +36,42 @@ class EnhancedCollatz:
         return full
 
     def _setup(self):
-        # clear & create two stacked axes
         self.fig.clear()
         self.ax_main, self.ax_hist = self.fig.subplots(
-            2, 1, sharex=True, gridspec_kw={'height_ratios': [3, 1]}
+            2, 1, sharex=True, gridspec_kw={'height_ratios': [3,1]}
         )
 
-        # —— Main plot (log‐scale)
+        # Main panel: log‐scale line + parity scatter
         self.ax_main.set_title(f'Enhanced Collatz – seeds {self.seeds}', fontweight='bold')
         self.ax_main.set_ylabel('Value (log scale)')
         self.ax_main.set_yscale('log')
         self.ax_main.set_xlim(0, self.max_len)
         self.ax_main.set_ylim(1, self.global_max * 1.1)
 
-        # one line + scatter per seed
-        colors = ['tab:blue', 'tab:green', 'tab:purple', 'tab:brown']
-        self.lines, self.scatters = [], []
+        colors = ['tab:blue','tab:green','tab:purple','tab:brown']
+        self.lines = []
+        self.scatters = []
         for idx, seed in enumerate(self.seeds):
             col = colors[idx % len(colors)]
             line, = self.ax_main.plot([], [], '-', color=col, label=f'seed {seed}')
-            sc = self.ax_main.scatter([], [], s=50, edgecolors='black')
+            sc = self.ax_main.scatter([], [], s=50, edgecolors='black', color=col)
             self.lines.append(line)
             self.scatters.append(sc)
         self.ax_main.legend(loc='upper right')
 
-        # annotation for seed 0’s current value
-        self.annot = self.ax_main.text(
-            0, self.seqs[0][0], str(self.seqs[0][0]),
-            fontsize=10, ha='left', va='bottom'
-        )
+        # Annotation & peak‐line for the FIRST seed
+        init0 = self.seqs[0][0]
+        self.annot = self.ax_main.text(0, init0, str(init0),
+                                       fontsize=10, ha='left', va='bottom')
+        self.peak = init0
+        self.peak_line = self.ax_main.axhline(self.peak,
+                                              color='orange',
+                                              linestyle='--')
 
-        # peak‐value line for seed 0
-        self.peak = self.seqs[0][0]
-        self.peak_line = self.ax_main.axhline(
-            self.peak, color='orange', linestyle='--', label='seed 0 peak'
-        )
-
-        # —— Histogram subplot (set scale & grid, no initial hist)
-        self.ax_hist.set_xscale('log')
-        self.ax_hist.set_yscale('log')
+        # Histogram panel: grid only (no log‐scale yet)
         self.ax_hist.set_xlabel('Value')
         self.ax_hist.set_ylabel('Count')
         self.ax_hist.grid(True, which='both', ls='--', lw=0.5)
-
-        self.fig.tight_layout()
 
     def toggle_pause(self):
         self.paused = not self.paused
@@ -81,7 +79,6 @@ class EnhancedCollatz:
     def update(self):
         if self.paused:
             return True
-
         if self.step > self.max_len:
             return False
 
@@ -95,30 +92,48 @@ class EnhancedCollatz:
             # update line
             self.lines[idx].set_data(xs, ys)
 
-            # update parity‐colored scatter
-            offsets = np.column_stack((xs, ys))
-            colors = ['blue' if y % 2 == 0 else 'red' for y in ys]
-            self.scatters[idx].set_offsets(offsets)
-            self.scatters[idx].set_facecolors(colors)
+            # update parity scatter
+            pts = np.column_stack((xs, ys))
+            fc  = ['blue' if y % 2 == 0 else 'red' for y in ys]
+            self.scatters[idx].set_offsets(pts)
+            self.scatters[idx].set_facecolors(fc)
 
-        # annotate seed 0’s current value
-        y0 = self.seqs[0][self.step - 1] if self.step - 1 < len(self.seqs[0]) else self.seqs[0][-1]
-        self.annot.set_position((self.step - 1, y0))
+        # update annotation & peak for seed0
+        y0 = self.seqs[0][self.step-1] if self.step-1 < len(self.seqs[0]) else self.seqs[0][-1]
+        self.annot.set_position((self.step-1, y0))
         self.annot.set_text(str(y0))
-
-        # update peak line if needed
         if y0 > self.peak:
             self.peak = y0
             self.peak_line.set_ydata([self.peak, self.peak])
 
-        # redraw histogram
-        self.ax_hist.cla()
-        self.ax_hist.set_xscale('log')
-        self.ax_hist.set_yscale('log')
+        # build a simple histogram of all seen values
+        counts, edges = np.histogram(all_vals, bins=self.bins)
+
+        # clear & label
+        self.ax_hist.clear()
         self.ax_hist.set_xlabel('Value')
         self.ax_hist.set_ylabel('Count')
         self.ax_hist.grid(True, which='both', ls='--', lw=0.5)
-        self.ax_hist.hist(all_vals, bins=self.bins, log=True)
+
+        # only draw & log-scale if there's at least one nonzero bin
+        mask = counts > 0
+        if mask.any():
+            centers = (edges[:-1] + edges[1:]) * 0.5
+            widths  = edges[1:] - edges[:-1]
+            self.ax_hist.bar(centers[mask], counts[mask],
+                            width=widths[mask], align='center')
+            # now it's safe to switch to log scales
+            try:
+                self.ax_hist.set_xscale('log')
+                self.ax_hist.set_yscale('log')
+            except ValueError:
+                # if something still balks, fall back to linear
+                self.ax_hist.set_xscale('linear')
+                self.ax_hist.set_yscale('linear')
+        else:
+            # no data yet → keep both axes linear
+            self.ax_hist.set_xscale('linear')
+            self.ax_hist.set_yscale('linear')
 
         self.fig.tight_layout()
         self.step += 1
