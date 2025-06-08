@@ -89,8 +89,10 @@ class EnhancedCollatz:
             ys = seq[:self.step] if self.step <= len(seq) else seq
             all_vals.extend(ys)
 
+            xs_seq = xs[:len(ys)]
+
             # update line
-            self.lines[idx].set_data(xs, ys)
+            self.lines[idx].set_data(xs_seq, ys)
 
             # update parity scatter
             # handle sequences shorter than the current step
@@ -98,6 +100,7 @@ class EnhancedCollatz:
             fc  = ['blue' if y % 2 == 0 else 'red' for y in ys]
             self.scatters[idx].set_offsets(pts)
             self.scatters[idx].set_facecolors(fc)
+
 
         # update annotation & peak for seed0
         y0 = self.seqs[0][self.step-1] if self.step-1 < len(self.seqs[0]) else self.seqs[0][-1]
