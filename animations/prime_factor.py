@@ -138,7 +138,10 @@ class DualPrimeFactorProgression:
         return cont
 
 # --- static performance with hover tooltips
-import mplcursors
+try:
+    import mplcursors
+except ImportError:  # pragma: no cover - optional dependency for tooltips
+    mplcursors = None
 class PrimeFactorPerformance:
     def __init__(self, sizes, ax):
         self.sizes = sizes
@@ -174,6 +177,8 @@ class PrimeFactorPerformance:
     def _connect(self):
         def fmt(t):
             return f"{t*1000:.2f} ms" if t < 1.0 else f"{t:.3f} s"
+        if mplcursors is None:
+            return
 
         mplcursors.cursor(self.scat_naive, hover=True).connect(
             "add", lambda sel: sel.annotation.set_text(
