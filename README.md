@@ -25,7 +25,7 @@ This toolkit provides:
 
 4. **Extensible Design**:
    - Drop-in modules under `animations/` can be swapped or extended with new algorithms.  
-   - Central `main.py` GUI (PySimpleGUI + Matplotlib).
+   - Central `main.py` GUI (Tkinter + Matplotlib).
 
 ---
 
