@@ -1,126 +1,148 @@
 import matplotlib
-matplotlib.use('TkAgg')
-import PySimpleGUI as sg
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
-plt.style.use('ggplot')
+plt.style.use("ggplot")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+import tkinter as tk
+from tkinter import ttk, simpledialog, messagebox
+
 from animations.collatz_performance import CollatzPerformance
 from animations.enhanced_collatz import EnhancedCollatz
 from animations.prime_factor import (
     DualPrimeFactorProgression,
-    PrimeFactorPerformance
+    PrimeFactorPerformance,
 )
 
-# —— GUI layout
-layout = [
-    [sg.Text('Project Euler Visualizer', font=('Arial', 16))],
-    [
-        sg.Button('Enhanced Collatz'),
-        sg.Button('Collatz Performance'),
-        sg.Button('LPF Dual Progression'),
-        sg.Button('LPF Performance'),
 
-        sg.Button('Exit')
-    ],
-    [
-        sg.Button('Pause/Play', key='-PAUSE-'),
-        sg.Text('Speed (ms):'),
-        sg.Slider(range=(10, 1000),
-                  default_value=200,
-                  orientation='h',
-                  size=(20, 15),
-                  key='-SPEED-')
-    ],
-    [sg.Canvas(key='-CANVAS-', size=(800, 500))]
-]
+class App:
+    """Tkinter-based GUI for visualizing and benchmarking algorithms."""
 
-window = sg.Window('Euler Visualizer', layout, finalize=True)
+    def __init__(self, root: tk.Tk) -> None:
+        self.root = root
+        root.title("Euler Visualizer")
 
-fig = plt.figure(figsize=(8, 5))
-canvas = FigureCanvasTkAgg(fig, master=window['-CANVAS-'].TKCanvas)
-canvas.draw()
-canvas.get_tk_widget().pack(side='top', fill='both', expand=1)
+        self.speed = tk.IntVar(value=200)
+        self.animator = None
 
-animator = None
-speed = 200
+        ttk.Label(root, text="Project Euler Visualizer", font=("Arial", 16)).pack(
+            pady=5
+        )
 
-while True:
-    event, values = window.read(timeout=speed)
-    speed = int(values.get('-SPEED-', speed))
+        btn_frame = ttk.Frame(root)
+        btn_frame.pack(pady=2)
 
-    if event in (sg.WIN_CLOSED, 'Exit'):
-        break
+        ttk.Button(btn_frame, text="Enhanced Collatz", command=self.run_enhanced).grid(
+            row=0, column=0, padx=2
+        )
+        ttk.Button(
+            btn_frame, text="Collatz Performance", command=self.run_collatz_perf
+        ).grid(row=0, column=1, padx=2)
+        ttk.Button(btn_frame, text="LPF Dual Progression", command=self.run_lpf_dual).grid(
+            row=0, column=2, padx=2
+        )
+        ttk.Button(btn_frame, text="LPF Performance", command=self.run_lpf_perf).grid(
+            row=0, column=3, padx=2
+        )
+        ttk.Button(btn_frame, text="Exit", command=root.destroy).grid(
+            row=0, column=4, padx=2
+        )
 
-    if event == '-PAUSE-':
-        if animator and hasattr(animator, 'toggle_pause'):
-            animator.toggle_pause()
-        continue
+        control = ttk.Frame(root)
+        control.pack(pady=2)
+        ttk.Button(control, text="Pause/Play", command=self.toggle_pause).grid(
+            row=0, column=0, padx=2
+        )
+        ttk.Label(control, text="Speed (ms):").grid(row=0, column=1, padx=2)
+        ttk.Scale(control, from_=10, to=1000, orient="horizontal", variable=self.speed).grid(
+            row=0, column=2, padx=2
+        )
 
-    if event == 'Enhanced Collatz':
-        inp = sg.popup_get_text(
-            'Enter seed(s), comma-separated (e.g. 27,13)',
-            'Enhanced Collatz',
-            default_text='27,13'
+        self.fig = plt.figure(figsize=(8, 5))
+        self.canvas = FigureCanvasTkAgg(self.fig, master=root)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(fill="both", expand=1)
+
+        self.root.after(self.speed.get(), self.on_timer)
+
+    # ------------------------------------------------------------------ helpers
+    def on_timer(self) -> None:
+        """Periodic update callback for animations."""
+        if self.animator:
+            try:
+                cont = self.animator.update()
+                if cont:
+                    self.canvas.draw()
+                else:
+                    self.animator = None
+            except Exception as exc:  # pragma: no cover - runtime safety
+                print("Animation Error:", exc)
+                self.animator = None
+        self.root.after(self.speed.get(), self.on_timer)
+
+    def toggle_pause(self) -> None:
+        if self.animator and hasattr(self.animator, "toggle_pause"):
+            self.animator.toggle_pause()
+
+    # -------------------------------------------------------------- button hooks
+    def run_enhanced(self) -> None:
+        inp = simpledialog.askstring(
+            "Enhanced Collatz",
+            "Enter seed(s), comma-separated (e.g. 27,13)",
+            initialvalue="27,13",
+            parent=self.root,
         )
         if not inp:
-            continue
+            return
         try:
-            seeds = [int(s.strip()) for s in inp.split(',')]
+            seeds = [int(s.strip()) for s in inp.split(",")]
         except ValueError:
-            sg.popup_error('Please enter integers separated by commas.')
-            continue
-        animator = EnhancedCollatz(seeds, fig)
-        canvas.draw(); window.refresh()
-        continue
-    if event == 'Collatz Performance':
-       fig.clear()
-       ax = fig.add_subplot(111)
-       # e.g. test up to 10k,20k,40k,80k for speed
-       sizes = [10_000 * 2**i for i in range(7)]
-       animator = CollatzPerformance(sizes, ax)
-       canvas.draw(); window.refresh()
-       continue
+            messagebox.showerror(
+                "Error", "Please enter integers separated by commas.", parent=self.root
+            )
+            return
+        self.animator = EnhancedCollatz(seeds, self.fig)
+        self.canvas.draw()
 
-    if event == 'LPF Dual Progression':
-        inp = sg.popup_get_text(
-            'Enter n for LPF dual progression (e.g. 180)',
-            'LPF Dual Progression',
-            default_text='180'
+    def run_collatz_perf(self) -> None:
+        self.fig.clear()
+        ax = self.fig.add_subplot(111)
+        sizes = [10_000 * 2 ** i for i in range(7)]
+        self.animator = CollatzPerformance(sizes, ax)
+        self.canvas.draw()
+
+    def run_lpf_dual(self) -> None:
+        inp = simpledialog.askstring(
+            "LPF Dual Progression",
+            "Enter n for LPF dual progression (e.g. 180)",
+            initialvalue="180",
+            parent=self.root,
         )
         if not inp:
-            continue
+            return
         try:
             n = int(inp)
         except ValueError:
-            sg.popup_error('Please enter a valid integer.')
-            continue
-        fig.clear()
-        ax = fig.add_subplot(111)
-        animator = DualPrimeFactorProgression(n, ax)
-        canvas.draw(); window.refresh()
-        continue
+            messagebox.showerror(
+                "Error", "Please enter a valid integer.", parent=self.root
+            )
+            return
+        self.fig.clear()
+        ax = self.fig.add_subplot(111)
+        self.animator = DualPrimeFactorProgression(n, ax)
+        self.canvas.draw()
 
-    if event == 'LPF Performance':
-        fig.clear()
-        ax = fig.add_subplot(111)
-        # a richer, geometric progression from 10 000 up to ~2.56 million
-        sizes = [10_000 * (2**i) for i in range(0, 15)]  # [10k, 20k, 40k, …, 2 560k]
-        # insert one mid-range check for extra detail
-        sizes.insert(2, 30_000)  # now: 10k, 20k, 30k, 40k, …, 2 560k
-        animator = PrimeFactorPerformance(sizes, ax)
-        canvas.draw(); window.refresh()
-        continue
+    def run_lpf_perf(self) -> None:
+        self.fig.clear()
+        ax = self.fig.add_subplot(111)
+        sizes = [10_000 * (2 ** i) for i in range(15)]
+        sizes.insert(2, 30_000)
+        self.animator = PrimeFactorPerformance(sizes, ax)
+        self.canvas.draw()
 
-    # animation stepping
-    if animator:
-        try:
-            cont = animator.update()
-            if cont:
-                canvas.draw(); window.refresh()
-            else:
-                animator = None
-        except Exception as e:
-            print('Animation Error:', e)
-            animator = None
 
-window.close()
+if __name__ == "__main__":
+    root = tk.Tk()
+    App(root)
+    root.mainloop()
+
