@@ -93,7 +93,8 @@ class EnhancedCollatz:
             self.lines[idx].set_data(xs, ys)
 
             # update parity scatter
-            pts = np.column_stack((xs, ys))
+            # handle sequences shorter than the current step
+            pts = np.column_stack((xs[:len(ys)], ys))
             fc  = ['blue' if y % 2 == 0 else 'red' for y in ys]
             self.scatters[idx].set_offsets(pts)
             self.scatters[idx].set_facecolors(fc)
