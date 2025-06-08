@@ -80,7 +80,7 @@ This toolkit provides:
 
 ## Contributing
 
- suggestions for enhancements is welcomed:
+ **Suggestions for enhancements are welcome:**
 
 - Add new algorithms under `animations/` and register buttons in `main.py`.  
 - Improve caching or introduce probabilistic tests (e.g., Miller–Rabin) for prime checks. (and please explain it me if you could 😭)
